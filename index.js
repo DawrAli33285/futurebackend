@@ -71,6 +71,7 @@ newsletterEmailRunCron()
 // newsletterEmailManualTrigger()
 
 
-server.listen(process.env.PORT, () => {
-  console.log(`Listening to PORT ${process.env.PORT}`);
+const PORT = process.env.PORT || 5000;
+server.listen(PORT, '0.0.0.0', () => {
+  console.log(`Listening to PORT ${PORT}`);
 });
