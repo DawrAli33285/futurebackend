@@ -1,0 +1,1566 @@
+
+
+
+
+
+//let siderealLon;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+const { DateTime } = require('luxon');
+const geoTz = require('geo-tz');
+const astronomy = require('astronomy-engine');
+const TROPICAL_SIGNS = [
+  { name: 'Aries',       start:   0, end:  30 },
+  { name: 'Taurus',      start:  30, end:  60 },
+  { name: 'Gemini',      start:  60, end:  90 },
+  { name: 'Cancer',      start:  90, end: 120 },
+  { name: 'Leo',         start: 120, end: 150 },
+  { name: 'Virgo',       start: 150, end: 180 },
+  { name: 'Libra',       start: 180, end: 210 },
+  { name: 'Scorpio',     start: 210, end: 240 },
+  { name: 'Sagittarius', start: 240, end: 270 },
+  { name: 'Capricorn',   start: 270, end: 300 },
+  { name: 'Aquarius',    start: 300, end: 330 },
+  { name: 'Pisces',      start: 330, end: 360 }
+];
+
+
+    const PRECESSION_RATE = 0.01397; 
+const EPOCH_YEAR = 2000.0;
+
+    class SiderealAstrologyCalculator {
+      constructor(ayanamsaType = 'tropical', birthYear = null) {
+        const refYear = birthYear || new Date().getFullYear();
+        const yearsSince2000 = refYear - 2000.0;
+        const PRECESSION_RATE = 0.01397;
+      
+        this.isTropical = ayanamsaType === 'tropical';
+        this.isTrueSidereal = ayanamsaType === 'true_sidereal';
+      
+        if (ayanamsaType === 'tropical') {
+          this.ayanamsa = 0;
+        } else if (ayanamsaType === 'true_sidereal') {
+          this.ayanamsa = 28.70 + (PRECESSION_RATE * yearsSince2000);
+        } else {
+          const base = { lahiri: 23.85, raman: 22.463, krishnamurti: 23.900, fagan_bradley: 24.836 };
+          this.ayanamsa = (base[ayanamsaType] || 23.85) + (PRECESSION_RATE * yearsSince2000);
+        }
+
+        console.log('=== CONSTRUCTOR ===');
+        console.log('ayanamsaType:', ayanamsaType);
+        console.log('birthYear passed:', birthYear, '| refYear used:', refYear);
+        console.log('yearsSince2000:', yearsSince2000);
+        console.log('ayanamsa result:', this.ayanamsa);
+        console.log('TARGET ayanamsa for 1996 should be: 29.063');
+        console.log('===================');
+      }
+
+      createAstroTime(year, month, day, hour, minute, lat, lng, timezone) {
+        let utcDate;
+        if (timezone && timezone !== 'UTC' && timezone !== '+00:00') {
+          // Use the timezone offset sent from frontend (already resolved historically)
+          console.log('Timezone resolved from coordinates:', timezone);
+          const localDt = DateTime.fromObject(
+            { year, month, day, hour, minute },
+            { zone: timezone }
+          );
+          const utc = localDt.toUTC();
+          utcDate = new Date(Date.UTC(utc.year, utc.month - 1, utc.day, utc.hour, utc.minute, 0));
+          
+          // Safety check — log to verify correct UTC conversion
+          console.log('Local input:', { year, month, day, hour, minute, timezone });
+          console.log('Converted UTC:', { year: utc.year, month: utc.month, day: utc.day, hour: utc.hour, minute: utc.minute });
+
+        } else {
+          // No timezone or UTC — treat as UTC directly
+          utcDate = new Date(Date.UTC(year, month - 1, day, hour, minute, 0));
+        }
+        if (isNaN(utcDate.getTime())) throw new Error('Invalid date provided');
+        return astronomy.MakeTime(utcDate);
+      }
+
+
+      generateChartWheelData(planets, ascendant, houses) {
+        const wheelData = {
+          planets: {},
+          ascendant: parseFloat(ascendant.longitude),
+          houses: houses.map(h => parseFloat(h.longitude))
+        };
+      
+        for (const [name, data] of Object.entries(planets)) {
+          wheelData.planets[name] = {
+            longitude: parseFloat(data.longitude),
+            sign: data.sign,
+            degree: parseFloat(data.degree)
+          };
+        }
+      
+        return wheelData;
+      }
+    
+    
+
+
+      getZodiacSign(longitude) {
+        let lon = ((longitude % 360) + 360) % 360;
+      
+        // IAU sidereal sign boundaries (13 signs including Ophiuchus)
+        const siderealBoundaries = [
+          { name: 'Aries',       start: 0,   end: 25  },
+          { name: 'Taurus',      start: 25,  end: 62  },
+          { name: 'Gemini',      start: 62,  end: 90  },
+          { name: 'Cancer',      start: 90,  end: 110 },
+          { name: 'Leo',         start: 110, end: 146 },
+          { name: 'Virgo',       start: 146, end: 190 },
+          { name: 'Libra',       start: 190, end: 213 },
+          { name: 'Scorpio',     start: 213, end: 220 },
+          { name: 'Ophiuchus',   start: 220, end: 238 },
+          { name: 'Sagittarius', start: 238, end: 271 },
+          { name: 'Capricorn',   start: 271, end: 299 },
+          { name: 'Aquarius',    start: 299, end: 323 },
+          { name: 'Pisces',      start: 323, end: 360 },
+        ];
+      
+        for (const sign of siderealBoundaries) {
+          if (lon >= sign.start && lon < sign.end) {
+            const degreeInSign = lon - sign.start;
+            return {
+              sign: sign.name,
+              degree: degreeInSign,
+              minutes: (degreeInSign % 1) * 60,
+              absoluteLongitude: lon
+            };
+          }
+        }
+      
+        // Fallback (should never hit)
+        return {
+          sign: 'Pisces',
+          degree: lon - 323,
+          minutes: ((lon - 323) % 1) * 60,
+          absoluteLongitude: lon
+        };
+      }
+
+
+      formatDegree(degreeInfo) {
+        let deg = Math.floor(degreeInfo.degree);
+        const totalMinutes = (degreeInfo.degree - deg) * 60;
+        let min = Math.floor(totalMinutes);
+        let sec = Math.round((totalMinutes - min) * 60);
+        
+        // Handle second overflow
+        if (sec >= 60) {
+          sec = 0;
+          min += 1;
+        }
+        
+        // Handle negative seconds
+        if (sec < 0) {
+          sec = 0;
+        }
+        
+      
+
+        if (min >= 60) {
+          min = 0;
+          deg += 1;
+      }
+        
+        // Handle negative minutes
+        if (min < 0) {
+          min = 0;
+        }
+        
+      
+        if (deg < 0) {
+          deg = 0;
+        }
+        
+        return `${deg}°${min}'${sec}"`;
+      }
+      validatePosition(planetName, siderealLon, signInfo) {
+        const signWidth = SIDEREAL_SIGNS.find(s => s.name === signInfo.sign);
+        if (signWidth && signInfo.degree >= (signWidth.end - signWidth.start)) {
+          console.warn(`⚠️ ${planetName} degree overflow:`, {
+            absoluteLongitude: siderealLon,
+            sign: signInfo.sign,
+            degreeInSign: signInfo.degree,
+            signWidth: signWidth.end - signWidth.start
+          });
+        }
+        return signInfo;
+      }
+
+      computeLST(astroTime, longitude) {
+        // Use astronomy-engine's built-in sidereal time — no manual GMST needed
+        const gst = astronomy.SiderealTime(astroTime); // returns GST in hours
+        let lst = ((gst * 15 + longitude) % 360 + 360) % 360; // convert to degrees
+        return lst;
+      }
+      
+      calculateHouseCusps(astroTime, latitude, longitude, system = 'placidus') {
+        try {
+          const ascendant = this.calculateAscendant(astroTime, latitude, longitude);
+          const midheaven = this.calculateMidheaven(astroTime, latitude, longitude);
+          const ascLon = parseFloat(ascendant.longitude);
+          const mcLon  = parseFloat(midheaven.longitude);
+          console.log('=== HOUSE CUSP ENTRY ===');
+console.log('ascLon (from calculateAscendant, should be SIDEREAL):', ascLon.toFixed(4));
+console.log('mcLon (from calculateMidheaven, should be SIDEREAL):', mcLon.toFixed(4));
+console.log('this.ayanamsa:', this.ayanamsa.toFixed(4));
+console.log('tropicalAscLon will be:', (ascLon + this.ayanamsa).toFixed(4), '(adding ayanamsa back)');
+console.log('Expected tropical ASC for this birth: ~171° (Virgo 27°)');
+console.log('========================');
+
+          const houses = [];
+      console.log("SYSTEM IS")
+      console.log(system)
+          if (system === 'placidus') {
+            const jd = astroTime.ut + 2451545.0;
+            const T  = (jd - 2451545.0) / 36525;
+            const latRad = latitude * Math.PI / 180;
+            const epsilon = (23.439291 - 0.0130042 * T) * Math.PI / 180;
+            const oblSin  = Math.sin(epsilon);
+            const oblCos  = Math.cos(epsilon);
+          
+            // Use astronomy-engine's sidereal time — same source as ASC/MC calculations
+            const lst  = this.computeLST(astroTime, longitude);
+            const RAMC = lst;
+            // Cusps: 1=ASC, 10=MC, others computed via Placidus trisection
+           // Compute tropical ASC and MC for Placidus (always in tropical space)
+// Convert sidereal ASC/MC back to tropical for Placidus math
+const tropicalAscLon = ((ascLon + this.ayanamsa) % 360 + 360) % 360;
+
+// Derive tropical MC directly from LST — bypass calculateMidheaven entirely
+let tropicalMcLon = Math.atan2(
+  Math.cos(epsilon) * Math.sin(lst * Math.PI / 180),
+  Math.cos(lst * Math.PI / 180)
+) * 180 / Math.PI;
+tropicalMcLon = ((tropicalMcLon % 360) + 360) % 360;
+
+// Quadrant fix: MC's RA must be close to LST
+const mcRA = ((Math.atan2(
+  Math.sin(tropicalMcLon * Math.PI / 180) * Math.cos(epsilon),
+  Math.cos(tropicalMcLon * Math.PI / 180)
+) * 180 / Math.PI) % 360 + 360) % 360;
+const mcRaDiff = ((mcRA - lst + 360) % 360);
+if (mcRaDiff > 90 && mcRaDiff < 270) {
+  tropicalMcLon = (tropicalMcLon + 180) % 360;
+}
+
+console.log('CUSPS MC CHECK: lst=', lst.toFixed(2), 
+            'tropicalMcLon=', tropicalMcLon.toFixed(2),
+            'mcRA=', mcRA.toFixed(2), 'diff=', mcRaDiff.toFixed(2));
+
+console.log('CUSPS DEBUG: lst=', lst.toFixed(2), 
+'mcLon=', mcLon, 
+'tropicalMcLon=', tropicalMcLon.toFixed(2),
+'tropicalAscLon=', tropicalAscLon.toFixed(2));
+// Compute each Placidus cusp once in tropical space
+// Standard Placidus algorithm working in ecliptic space directly
+const placidusEcliptic = (houseNum) => {
+  // H11 = 1/3 diurnal (MC→DSC), H12 = 2/3 diurnal (MC→DSC)
+  // H8  = 1/3 nocturnal (IC→ASC),  H9  = 2/3 nocturnal (IC→ASC)
+  const nocturnal = houseNum === 8 || houseNum === 9;
+  const fraction  = (houseNum === 9 || houseNum === 12) ? 2/3 : 1/3;
+
+  const RAMC_deg = RAMC;
+  const IC_RA    = (RAMC_deg + 180) % 360;
+
+  // Starting longitude guess via RA interpolation
+  const ascRA = ((Math.atan2(
+    Math.sin(tropicalAscLon * Math.PI / 180) * oblCos,
+    Math.cos(tropicalAscLon * Math.PI / 180)
+  ) * 180 / Math.PI) % 360 + 360) % 360;
+  const dscRA = (ascRA + 180) % 360;
+
+  let guessRA;
+  if (nocturnal) {
+    // IC_RA → ascRA going forward
+    let arc = ((ascRA - IC_RA) + 360) % 360;
+    guessRA = ((IC_RA + fraction * arc) % 360 + 360) % 360;
+  } else {
+    // RAMC → dscRA going forward
+    let arc = ((dscRA - RAMC_deg) + 360) % 360;
+    guessRA = ((RAMC_deg + fraction * arc) % 360 + 360) % 360;
+  }
+
+  // Convert guess RA → ecliptic longitude
+  let L = ((Math.atan2(
+    Math.sin(guessRA * Math.PI / 180) * (1 / oblCos),
+    Math.cos(guessRA * Math.PI / 180)
+  ) * 180 / Math.PI) % 360 + 360) % 360;
+
+  // Hemisphere validation (same as yours, keep it)
+  const icLon  = (tropicalMcLon + 180) % 360;
+  const dscLon = (tropicalAscLon + 180) % 360;
+  if (nocturnal) {
+    let arcLen = ((tropicalAscLon - icLon) + 360) % 360;
+    let dist   = ((L - icLon) + 360) % 360;
+    if (dist > arcLen) L = (L + 180) % 360;
+  } else {
+    let arcLen = ((dscLon - tropicalMcLon) + 360) % 360;
+    let dist   = ((L - tropicalMcLon) + 360) % 360;
+    if (dist > arcLen) L = (L + 180) % 360;
+  }
+
+  // Iterate
+  for (let iter = 0; iter < 100; iter++) {
+    const Lrad   = L * Math.PI / 180;
+    const sinDec = oblSin * Math.sin(Lrad);
+    const dec    = Math.asin(Math.max(-0.9999, Math.min(0.9999, sinDec)));
+    const tanProd = Math.tan(latRad) * Math.tan(dec);
+    const clamped = Math.max(-0.9999, Math.min(0.9999, tanProd));
+    const DSA_deg = Math.acos(-clamped) * 180 / Math.PI;
+    const NSA_deg = 180 - DSA_deg;
+    const semiarc = nocturnal ? NSA_deg : DSA_deg;
+
+    const RA = ((Math.atan2(
+      Math.sin(Lrad) * oblCos,
+      Math.cos(Lrad)
+    ) * 180 / Math.PI) % 360 + 360) % 360;
+
+    const refRA = nocturnal ? IC_RA : RAMC_deg;
+    let md = ((RA - refRA) + 360) % 360;
+    // Keep md in 0..180 range (nocturnal: IC→ASC is always < 180°)
+    if (md > 180) md = 360 - md;  // ← KEY FIX: was `md - 360`, now `360 - md`
+
+    const targetMD = fraction * semiarc;
+    const diff     = targetMD - md;
+    if (Math.abs(diff) < 0.00001) break;
+    L = ((L + diff * 0.8 + 360) % 360);
+  }
+
+  return ((L % 360) + 360) % 360;
+};
+
+
+
+
+const placH8 = placidusEcliptic(8);
+const placH9 = placidusEcliptic(9);
+const placH11 = placidusEcliptic(11);
+const placH12 = placidusEcliptic(12);
+
+console.log('=== PLACIDUS TROPICAL CUSPS ===');
+console.log(`tropicalAscLon (H1): ${tropicalAscLon.toFixed(4)}°`);
+console.log(`placH8: ${placH8.toFixed(4)}°`);
+console.log(`placH9: ${placH9.toFixed(4)}°`);
+console.log(`placH11: ${placH11.toFixed(4)}°`);
+console.log(`placH12: ${placH12.toFixed(4)}°`);
+console.log(`IC (H4): ${((tropicalMcLon+180)%360).toFixed(4)}°`);
+
+console.log(`tropicalMcLon (H10): ${tropicalMcLon.toFixed(4)}°`);
+console.log('Expected for Virgo ASC birth: H2~210-230°, H3~240-260°, H5~30-50°, H6~60-80°');
+// Add right after tropicalAscLon and tropicalMcLon are computed in calculateHouseCusps
+console.log('[DIRECTION CHECK]');
+console.log('tropicalAscLon:', tropicalAscLon.toFixed(2));
+console.log('tropicalMcLon:', tropicalMcLon.toFixed(2));
+console.log('IC (MC+180):', ((tropicalMcLon+180)%360).toFixed(2));
+console.log('DSC (ASC+180):', ((tropicalAscLon+180)%360).toFixed(2));
+const icToAscGoingForward = ((tropicalAscLon - (tropicalMcLon+180) + 360) % 360);
+const icToAscGoingBack = 360 - icToAscGoingForward;
+console.log('IC→ASC going FORWARD (increasing lon):', icToAscGoingForward.toFixed(2), '°');
+console.log('IC→ASC going BACKWARD (decreasing lon):', icToAscGoingBack.toFixed(2), '°');
+console.log('H8 tropical result:', placH8?.toFixed(2));
+console.log('H8 distFromIC going forward:', ((placH8 - (tropicalMcLon+180) + 360) % 360).toFixed(2));
+console.log('H8 distFromIC going backward:', (360 - ((placH8 - (tropicalMcLon+180) + 360) % 360)).toFixed(2));
+console.log('H8 should be ~1/3 of the IC→ASC arc =', (icToAscGoingForward/3).toFixed(2), '(forward) or', (icToAscGoingBack/3).toFixed(2), '(backward)');
+
+console.log('================================');
+const checkOrder = (name, lon, prev, prevName) => {
+  const fwd = ((lon - tropicalAscLon + 360) % 360);
+  const prevFwd = ((prev - tropicalAscLon + 360) % 360);
+  const ok = fwd > prevFwd;
+  console.log(`  ${prevName}(${prev.toFixed(1)}°)→${name}(${lon.toFixed(1)}°): distFromASC ${prevFwd.toFixed(1)}°→${fwd.toFixed(1)}° ${ok ? '✓' : '✗ OUT OF ORDER'}`);
+};
+console.log('ORDER CHECK (all must increase from ASC going forward):');
+
+console.log('================================');
+
+// Placidus: iterator finds below-horizon cusps (H8,H9,H11,H12)
+// Above-horizon cusps (H2,H3,H5,H6) are their opposites
+const tropicalCusps = [
+  tropicalAscLon,                    // H1  ASC
+  (placH8 + 180) % 360,              // H2  opposite of H8
+  (placH9 + 180) % 360,              // H3  opposite of H9
+  (tropicalMcLon + 180) % 360,       // H4  IC
+  (placH11 + 180) % 360,             // H5  opposite of H11
+  (placH12 + 180) % 360,             // H6  opposite of H12
+  (tropicalAscLon + 180) % 360,      // H7  DSC
+  placH8,                            // H8
+  placH9,                            // H9
+  tropicalMcLon,                     // H10 MC
+  placH11,                           // H11
+  placH12,                           // H12
+];
+
+
+
+
+
+for (let i = 0; i < 12; i++) {
+  // Shift each tropical cusp to sidereal
+  const siderealCusp = this.isTropical
+    ? ((tropicalCusps[i] % 360) + 360) % 360
+    : ((tropicalCusps[i] - this.ayanamsa) % 360 + 360) % 360;
+
+  const signInfo = this.getZodiacSign(siderealCusp);
+  houses.push({
+    house: i + 1,
+    longitude: siderealCusp.toFixed(4),
+    sign: signInfo.sign,
+    position: this.formatDegree(signInfo),
+    degree: this.calculateDegreeDecimal(signInfo).toFixed(2),
+    degreeInSign: Math.floor(signInfo.degree),
+    minutes: Math.floor(signInfo.minutes),
+    absoluteLongitude: siderealCusp.toFixed(4)
+  });
+}
+          } else {
+            // Equal house fallback
+            for (let i = 0; i < 12; i++) {
+              const cuspLon = ((ascLon + i * 30) % 360 + 360) % 360;
+              const signInfo = this.getZodiacSign(cuspLon);
+              houses.push({
+                house: i + 1,
+                longitude: cuspLon.toFixed(4),
+                sign: signInfo.sign,
+                position: this.formatDegree(signInfo),
+                degree: this.calculateDegreeDecimal(signInfo).toFixed(2),
+                degreeInSign: Math.floor(signInfo.degree),
+                minutes: Math.floor(signInfo.minutes),
+                absoluteLongitude: cuspLon.toFixed(4)
+              });
+            }
+          }
+    
+
+          return houses;
+        } catch (error) {
+          console.error('Error calculating house cusps:', error);
+          return this.getFallbackHouses();
+        }
+      }
+      
+      calculateDegreeDecimal(degreeInfo) {
+        let degree = parseFloat(degreeInfo.degree);
+        
+        // ADD THIS VALIDATION:
+        // Ensure degree is within valid range for the sign
+        if (degree < 0) degree = 0;
+        
+        return degree;
+      }
+      calculatePlanetaryPositions(astroTime) {
+        const planets = {};
+      
+        try {
+          const calculatePlanet = (planetName) => {
+            try {
+              const vector = astronomy.GeoVector(planetName, astroTime, true);
+              const ecliptic = astronomy.Ecliptic(vector);
+              const rawTropicalLon = ((ecliptic.elon % 360) + 360) % 360;
+
+              const finalLon = this.isTropical
+              ? rawTropicalLon
+              : (rawTropicalLon - this.ayanamsa + 360) % 360;
+            
+            
+              const signInfo = this.getZodiacSign(finalLon);
+             
+              return {
+                longitude: finalLon.toFixed(4),
+                tropicalLongitude: rawTropicalLon.toFixed(4),
+                sign: signInfo.sign,
+                position: this.formatDegree(signInfo),
+                degree: this.calculateDegreeDecimal(signInfo).toFixed(2)
+              };
+
+
+            } catch (error) {
+              console.error(`Error calculating ${planetName}:`, error);
+              return {
+                longitude: '0.0000',
+                sign: 'Aries',
+                position: '0°0\'0"',
+                degree: '0.00',
+                error: error.message
+              };
+            }
+          };
+
+      
+      
+          try {
+            const earthVector = astronomy.HelioVector('Earth', astroTime);
+            const sunVector = {
+              x: -earthVector.x,
+              y: -earthVector.y,
+              z: -earthVector.z,
+              t: astroTime
+            };
+            
+            const sunEcl = astronomy.Ecliptic(sunVector);
+            let tropicalLon;
+            const rawLon = ((sunEcl.elon % 360) + 360) % 360;
+const siderealLon = this.isTropical ? rawLon : (rawLon - this.ayanamsa + 360) % 360;
+
+const sunSign = this.getZodiacSign(siderealLon);
+
+planets.Sun = {
+  longitude: siderealLon.toFixed(4),
+  tropicalLongitude: rawLon.toFixed(4),
+  sign: sunSign.sign,
+  position: this.formatDegree(sunSign),
+  degree: this.calculateDegreeDecimal(sunSign).toFixed(2)
+};
+          } catch (error) {
+            console.error('Error calculating Sun:', error);
+            planets.Sun = {
+              longitude: '0.0000',
+              sign: 'Aries',
+              position: '0°0\'0"',
+              degree: '0.00',
+              error: error.message
+            };
+          }
+      
+        
+          try {
+            const moonVector = astronomy.GeoMoon(astroTime);
+            const moonEcl = astronomy.Ecliptic(moonVector);
+            let tropicalLon = ((moonEcl.elon % 360) + 360) % 360;
+            
+            if (!this.isTropical) {
+              tropicalLon = (tropicalLon - this.ayanamsa + 360) % 360;
+            }
+
+         // Store raw tropical before shifting
+const moonTropicalRaw = ((moonEcl.elon % 360) + 360) % 360;
+let moonSiderealLon = moonTropicalRaw;
+if (!this.isTropical) {
+  moonSiderealLon = (moonTropicalRaw - this.ayanamsa + 360) % 360;
+}
+const moonSign = this.getZodiacSign(moonSiderealLon);
+planets.Moon = {
+  longitude: moonSiderealLon.toFixed(4),
+  tropicalLongitude: moonTropicalRaw.toFixed(4),
+  sign: moonSign.sign,
+  position: this.formatDegree(moonSign),
+  degree: this.calculateDegreeDecimal(moonSign).toFixed(2)
+};
+          } catch (error) {
+            console.error('Error calculating Moon:', error);
+            planets.Moon = {
+              longitude: '0.0000',
+              sign: 'Aries',
+              position: '0°0\'0"',
+              degree: '0.00',
+              error: error.message
+            };
+          }
+      
+          
+          planets.Mercury = calculatePlanet('Mercury');
+planets.Venus = calculatePlanet('Venus');
+planets.Mars = calculatePlanet('Mars');
+planets.Jupiter = calculatePlanet('Jupiter');
+planets.Saturn = calculatePlanet('Saturn');
+planets.Uranus = calculatePlanet('Uranus');
+planets.Neptune = calculatePlanet('Neptune');
+planets.Pluto = calculatePlanet('Pluto');
+      
+        } catch (error) {
+          console.error('Error in calculatePlanetaryPositions:', error);
+          throw new Error(`Failed to calculate planetary positions: ${error.message}`);
+        }
+      
+        return planets;
+      }
+      calculateAscendant(astroTime, latitude, longitude) {
+        try {
+          
+          const jd = astroTime.ut + 2451545.0;
+          console.log('astroTime.ut raw:', astroTime.ut);
+// Expected: approximately -1291.74
+          const T = (jd - 2451545.0) / 36525;
+          console.log('JD:', jd);
+          
+          const D0 = Math.floor(astroTime.ut);
+          const UT = (astroTime.ut - D0) * 24;
+          let gmst = 6.697374558
+                   + 0.06570982441908 * D0
+                   + 1.00273790935 * UT
+                   + 0.000026 * (astroTime.ut / 36525) * (astroTime.ut / 36525);
+          gmst = ((gmst * 15) % 360 + 360) % 360;
+          const lst = this.computeLST(astroTime, longitude);
+
+          console.log('=== LST COMPARISON ===');
+          console.log('lst computed in calculateHouseCusps:', lst.toFixed(4));
+          const lstCheck = this.computeLST(astroTime, longitude);
+          console.log('computeLST() result (used in calculateAscendant):', lstCheck.toFixed(4));
+          console.log('Difference (should be 0):', (lst - lstCheck).toFixed(6));
+          console.log('======================');
+      
+          const epsilon = 23.439291 - 0.0130042 * T;
+      
+          const lstRad = lst * Math.PI / 180;
+          const latRad = latitude * Math.PI / 180;
+          const epsilonRad = epsilon * Math.PI / 180;
+      
+         // Standard astronomical ascendant formula
+         const RAMC = lstRad; // Right Ascension of Midheaven Cosine
+         const tanLat = Math.tan(latRad);
+         const sinEps = Math.sin(epsilonRad);
+         const cosEps = Math.cos(epsilonRad);
+         
+        // Standard ascendant formula (Placidus/Koch convention)
+const y = -Math.cos(lstRad);
+const x = Math.sin(lstRad) * cosEps + Math.tan(latRad) * sinEps;
+
+let asc = Math.atan2(y, x) * 180 / Math.PI;
+asc = ((asc % 360) + 360) % 360;
+
+// Quadrant correction: ASC must be in the eastern hemisphere
+// i.e. its hour angle must be negative (rising, not setting)
+// HA = LST - RA_of_ASC; eastern horizon has HA near -90° (or 270°)
+function eclToRA(eclLon) {
+  const lonRad = eclLon * Math.PI / 180;
+  return ((Math.atan2(Math.sin(lonRad) * cosEps, Math.cos(lonRad)) * 180 / Math.PI) % 360 + 360) % 360;
+}
+
+const ascRA = eclToRA(asc);
+const ha = ((lst - ascRA + 360) % 360); // 0-360
+// Eastern horizon: HA should be in range 180-360 (i.e. negative HA, rising)
+if (ha < 180) {
+  asc = (asc + 180) % 360;
+}
+
+asc = ((asc % 360) + 360) % 360;
+
+console.log('[ASC FIX] tropical asc:', asc.toFixed(4), '| lst:', lst.toFixed(4), '| ascRA:', eclToRA(asc).toFixed(4), '| HA:', ((lst - eclToRA(asc) + 360) % 360).toFixed(4));
+console.log('[ASC FIX] Expected tropical ASC ~207° for this birth data');
+
+         let finalAsc;
+         if (this.isTropical) {
+           finalAsc = ((asc % 360) + 360) % 360;
+         } else if (this.isTrueSidereal) { finalAsc = (asc - this.ayanamsa + 360) % 360; } else { finalAsc = (asc - this.ayanamsa + 360) % 360; }
+
+          
+          const ascSign = this.getZodiacSign(finalAsc);
+
+        
+          return {
+            longitude: finalAsc.toFixed(4),
+            sign: ascSign.sign,
+            position: this.formatDegree(ascSign),
+            degree: this.calculateDegreeDecimal(ascSign).toFixed(2)
+          };
+        } catch (error) {
+          console.error('Error calculating ascendant:', error);
+          throw error;
+        }
+      }
+      
+      
+
+
+
+      calculateAspects(planets1, planets2 = null) {
+        const aspects = [];
+        const aspectTypes = [
+          { name: 'Conjunction',  angle: 0,   orb: 8 },
+          { name: 'Opposition',   angle: 180, orb: 8 },
+          { name: 'Trine',        angle: 120, orb: 8 },
+          { name: 'Square',       angle: 90,  orb: 8 },
+          { name: 'Sextile',      angle: 60,  orb: 6 },
+          { name: 'Semisextile',  angle: 30,  orb: 2 },
+          { name: 'Quincunx',     angle: 150, orb: 3 }
+        ];
+        
+      
+        const sourcePlanets = planets1;
+        const targetPlanets = planets2 || planets1;
+        console.log('=== ASPECT DEBUG ===');
+  for (const [name, data] of Object.entries(planets1)) {
+    console.log(`${name}: sidereal=${data.longitude} tropical=${data.tropicalLongitude}`);
+  }
+  console.log('===================');
+      
+  const seenPairs = new Set();
+  for (const planet1Name of Object.keys(sourcePlanets)) {
+    for (const planet2Name of Object.keys(targetPlanets)) {
+      if (!planets2 && planet1Name === planet2Name) continue;
+      const pairKey = [planet1Name, planet2Name].sort().join('-');
+      if (!planets2 && seenPairs.has(pairKey)) continue;
+      seenPairs.add(pairKey);
+            const lon1 = parseFloat(sourcePlanets[planet1Name].tropicalLongitude || sourcePlanets[planet1Name].longitude); 
+            const lon2 = parseFloat(targetPlanets[planet2Name].tropicalLongitude || targetPlanets[planet2Name].longitude);
+            let diff = Math.abs(lon1 - lon2);
+            if (diff > 180) diff = 360 - diff;
+      
+            for (const aspect of aspectTypes) {
+              const deviation = Math.abs(diff - aspect.angle);
+              if (deviation <= aspect.orb) {
+                aspects.push({
+                  planet1: planet1Name,
+                  planet2: planet2Name,
+                  aspect: aspect.name,
+                  angle: aspect.angle,
+                  orb: deviation.toFixed(2),
+                  exact: deviation <= 1.0
+                });
+                break;
+              }
+            }
+          }
+        }
+      
+
+        return aspects;
+      }
+      
+    
+
+      calculateSecondaryProgressions(birthData, targetDate) {
+        try {
+        
+          if (!birthData || !targetDate) {
+            throw new Error('Birth data and target date are required');
+          }
+      
+          
+          let birthDateObj;
+          if (birthData.timezone && birthData.timezone !== 'UTC') {
+            const localDt = DateTime.fromObject(
+              { year: birthData.year, month: birthData.month, day: birthData.day, 
+                hour: birthData.hour, minute: birthData.minute },
+              { zone: birthData.timezone }
+            );
+            const utc = localDt.toUTC();
+            birthDateObj = new Date(Date.UTC(utc.year, utc.month - 1, utc.day, utc.hour, utc.minute, 0));
+          } else {
+            birthDateObj = new Date(Date.UTC(
+              birthData.year, birthData.month - 1, birthData.day,
+              birthData.hour, birthData.minute
+            ));
+          }
+          
+          const targetDateObj = new Date(Date.UTC(
+            targetDate.year, 
+            targetDate.month - 1, 
+            targetDate.day,
+            targetDate.hour || 12,
+            targetDate.minute || 0
+          ));
+      
+        
+          if (isNaN(birthDateObj.getTime())) {
+            throw new Error('Invalid birth date provided');
+          }
+          if (isNaN(targetDateObj.getTime())) {
+            throw new Error('Invalid target date provided');
+          }
+      
+        
+          const timeDiffMs = targetDateObj - birthDateObj;
+          
+        
+          if (timeDiffMs < 0) {
+            throw new Error('Target date cannot be before birth date');
+          }
+      
+          const daysElapsed = timeDiffMs / (1000 * 60 * 60 * 24);
+          const yearsSinceBirth = daysElapsed / 365.25;
+      
+        
+          const daysToProgress = yearsSinceBirth;
+      
+        
+          const progressedDateObj = new Date(birthDateObj);
+          
+        
+          const wholeDays = Math.floor(daysToProgress);
+          progressedDateObj.setUTCDate(progressedDateObj.getUTCDate() + wholeDays);
+      
+          const fractionalDay = daysToProgress - wholeDays;
+          const fractionalMs = fractionalDay * 24 * 60 * 60 * 1000;
+          progressedDateObj.setTime(progressedDateObj.getTime() + fractionalMs);
+      
+      
+          if (isNaN(progressedDateObj.getTime())) {
+            throw new Error('Invalid progressed date calculated');
+          }
+      
+          
+          const progressedTime = this.createAstroTime(
+            progressedDateObj.getUTCFullYear(),
+            progressedDateObj.getUTCMonth() + 1,
+            progressedDateObj.getUTCDate(),
+            progressedDateObj.getUTCHours(),
+            progressedDateObj.getUTCMinutes()
+          );
+      
+        
+          const progressedPlanets = this.calculatePlanetaryPositions(progressedTime);
+          const progressedAscendant = this.calculateAscendant(
+            progressedTime, 
+            birthData.latitude, 
+            birthData.longitude
+          );
+      
+          const progressedHouses = this.calculateHouseCusps(
+            progressedTime,
+            birthData.latitude,
+            birthData.longitude
+          );
+      
+          return {
+            method: 'Secondary Progressions',
+            planets: progressedPlanets,
+            ascendant: progressedAscendant,
+            houses: progressedHouses,
+            progression_info: {
+              birth_date: birthDateObj.toISOString().split('T')[0],
+              birth_time: this.formatTime(birthDateObj),
+              target_date: targetDateObj.toISOString().split('T')[0],
+              target_time: this.formatTime(targetDateObj),
+              progressed_ephemeris_date: progressedDateObj.toISOString().split('T')[0],
+              progressed_ephemeris_time: this.formatTime(progressedDateObj),
+              age_in_years: parseFloat(yearsSinceBirth.toFixed(6)),
+              age_in_days: parseFloat(daysElapsed.toFixed(2)),
+              days_progressed: parseFloat(daysToProgress.toFixed(6)),
+              progression_ratio: '1 day = 1 year'
+            }
+          };
+        } catch (error) {
+          console.error('Error calculating secondary progressions:', error);
+          throw new Error(`Failed to calculate secondary progressions: ${error.message}`);
+        }
+      }
+      
+      
+      formatTime(dateObj) {
+        return `${String(dateObj.getUTCHours()).padStart(2, '0')}:${String(dateObj.getUTCMinutes()).padStart(2, '0')}`;
+      }
+      calculateSolarArcDirections(birthData, targetDate) {
+        try {
+          let birthDateObj;
+          if (birthData.timezone && birthData.timezone !== 'UTC') {
+            const localDt = DateTime.fromObject(
+              { year: birthData.year, month: birthData.month, day: birthData.day, 
+                hour: birthData.hour, minute: birthData.minute },
+              { zone: birthData.timezone }
+            );
+            const utc = localDt.toUTC();
+            birthDateObj = new Date(Date.UTC(utc.year, utc.month - 1, utc.day, utc.hour, utc.minute, 0));
+          } else {
+            birthDateObj = new Date(Date.UTC(
+              birthData.year, birthData.month - 1, birthData.day,
+              birthData.hour, birthData.minute
+            ));
+          }
+          
+          const targetDateObj = new Date(Date.UTC(
+            targetDate.year, 
+            targetDate.month - 1, 
+            targetDate.day,
+            targetDate.hour || 12,
+            targetDate.minute || 0
+          ));
+          
+          const daysElapsed = (targetDateObj - birthDateObj) / (1000 * 60 * 60 * 24);
+          const yearsSinceBirth = daysElapsed / 365.25;
+          
+        
+          const solarArc = yearsSinceBirth * 0.9856; 
+          
+        
+        
+          const birthTime = this.createAstroTime(
+            birthData.year, 
+            birthData.month, 
+            birthData.day, 
+            birthData.hour, 
+            birthData.minute
+          );
+          const natalPlanets = this.calculatePlanetaryPositions(birthTime);
+          const natalAscendant = this.calculateAscendant(birthTime, birthData.latitude, birthData.longitude);
+
+      
+          const directedPlanets = {};
+          for (const [planet, data] of Object.entries(natalPlanets)) {
+            const natalLon = parseFloat(data.longitude);
+      
+            let directedLon = (natalLon + solarArc) % 360;
+            if (directedLon < 0) directedLon += 360;
+            
+            const signInfo = this.getZodiacSign(directedLon);
+            directedPlanets[planet] = {
+              natal_longitude: natalLon.toFixed(4),
+              directed_longitude: directedLon.toFixed(4),
+              solar_arc_added: solarArc.toFixed(6),
+              sign: signInfo.sign,
+              position: this.formatDegree(signInfo),
+              degree: this.calculateDegreeDecimal(signInfo).toFixed(2)
+            };
+          }
+
+      
+          const natalAscLon = parseFloat(natalAscendant.longitude);
+
+          let directedAscLon = (natalAscLon + solarArc) % 360;
+          if (directedAscLon < 0) directedAscLon += 360;
+          
+          const ascSignInfo = this.getZodiacSign(directedAscLon);
+          const directedAscendant = {
+            natal_longitude: natalAscLon.toFixed(4),
+            directed_longitude: directedAscLon.toFixed(4),
+            solar_arc_added: solarArc.toFixed(6),
+            sign: ascSignInfo.sign,
+            position: this.formatDegree(ascSignInfo),
+            degree: this.calculateDegreeDecimal(ascSignInfo).toFixed(2)
+          };
+
+          return {
+            method: 'Solar Arc Directions',
+            planets: directedPlanets,
+            ascendant: directedAscendant,
+            progression_info: {
+              birth_date: birthDateObj.toISOString().split('T')[0],
+              birth_time: birthDateObj.toISOString().split('T')[1].substring(0, 5),
+              target_date: targetDateObj.toISOString().split('T')[0],
+              target_time: targetDateObj.toISOString().split('T')[1].substring(0, 5),
+              age_in_years: parseFloat(yearsSinceBirth.toFixed(6)),
+              age_in_days: parseFloat(daysElapsed.toFixed(2)),
+              solar_arc_degrees: parseFloat(solarArc.toFixed(6))
+            }
+          };
+        } catch (error) {
+          console.error('Error calculating solar arc directions:', error);
+          throw new Error(`Failed to calculate solar arc directions: ${error.message}`);
+        }
+      }
+
+    
+      calculateProgressions(birthData, targetDate, method = 'both') {
+        try {
+          if (method === 'secondary') {
+            return this.calculateSecondaryProgressions(birthData, targetDate);
+          } else if (method === 'solar_arc') {
+            return this.calculateSolarArcDirections(birthData, targetDate);
+          } else {
+        
+            const secondary = this.calculateSecondaryProgressions(birthData, targetDate);
+            const solarArc = this.calculateSolarArcDirections(birthData, targetDate);
+            
+            return {
+              secondary_progressions: secondary,
+              solar_arc_directions: solarArc
+            };
+          }
+        } catch (error) {
+          console.error('Error calculating progressions:', error);
+          throw new Error(`Failed to calculate progressions: ${error.message}`);
+        }
+      }
+
+      calculateElementsAndModalities(planets, ascendant) {
+        const elements = { Fire: 0, Earth: 0, Air: 0, Water: 0 };
+        const modalities = { Cardinal: 0, Fixed: 0, Mutable: 0 };
+        
+        const signElements = {
+          'Aries': 'Fire', 'Taurus': 'Earth', 'Gemini': 'Air', 'Cancer': 'Water',
+          'Leo': 'Fire', 'Virgo': 'Earth', 'Libra': 'Air', 'Scorpius': 'Water',  
+          'Ophiuchus': 'Fire', 'Sagittarius': 'Fire', 'Capricornus': 'Earth',   
+          'Aquarius': 'Air', 'Pisces': 'Water'
+        };
+        
+        const signModalities = {
+          'Aries': 'Cardinal', 'Taurus': 'Fixed', 'Gemini': 'Mutable', 'Cancer': 'Cardinal',
+          'Leo': 'Fixed', 'Virgo': 'Mutable', 'Libra': 'Cardinal', 'Scorpius': 'Fixed',  
+          'Ophiuchus': 'Mutable', 'Sagittarius': 'Mutable', 'Capricornus': 'Cardinal',   
+          'Aquarius': 'Fixed', 'Pisces': 'Mutable'
+        };
+      
+        for (const [planet, data] of Object.entries(planets)) {
+          const sign = data.sign;
+          if (signElements[sign]) elements[signElements[sign]]++;
+          if (signModalities[sign]) modalities[signModalities[sign]]++;
+        }
+        
+
+        if (signElements[ascendant.sign]) elements[signElements[ascendant.sign]]++;
+        if (signModalities[ascendant.sign]) modalities[signModalities[ascendant.sign]]++;
+      
+        return { elements, modalities };
+      }
+      getChartRuler(ascendantSign) {
+        const rulers = {
+          'Aries': 'Mars', 'Taurus': 'Venus', 'Gemini': 'Mercury', 'Cancer': 'Moon',
+          'Leo': 'Sun', 'Virgo': 'Mercury', 'Libra': 'Venus', 'Scorpius': 'Pluto',      
+          'Ophiuchus': 'Chiron', 'Sagittarius': 'Jupiter', 'Capricornus': 'Saturn',    
+          'Aquarius': 'Uranus', 'Pisces': 'Neptune'
+        };
+        
+        return rulers[ascendantSign] || 'Unknown';
+      }
+   
+
+      calculateMidheaven(astroTime, latitude, longitude) {
+        try {
+          // Julian Day
+          const jd = astroTime.ut + 2451545.0;
+          console.log('astroTime.ut raw:', astroTime.ut);
+// Expected: approximately -1291.74
+          const T = (jd - 2451545.0) / 36525;
+      
+          // GMST in degrees
+          const D0 = Math.floor(astroTime.ut);
+          const UT = (astroTime.ut - D0) * 24;
+          let gmst = 6.697374558
+                   + 0.06570982441908 * D0
+                   + 1.00273790935 * UT
+                   + 0.000026 * (astroTime.ut / 36525) * (astroTime.ut / 36525);
+          gmst = ((gmst * 15) % 360 + 360) % 360;
+          const lst = this.computeLST(astroTime, longitude);
+      
+          // Obliquity of the ecliptic
+          const epsilon = 23.439291 - 0.0130042 * T;
+          const epsilonRad = epsilon * Math.PI / 180;
+      
+          // Convert LST to radians
+          const lstRad = lst * Math.PI / 180;
+      
+          // Correct atan2 formula for true ecliptic MC
+          let tropicalMC = Math.atan2(
+            Math.cos(epsilonRad) * Math.sin(lstRad),
+            Math.cos(lstRad)
+          ) * 180 / Math.PI;
+          
+          tropicalMC = ((tropicalMC % 360) + 360) % 360;
+          
+          // MC's RA should be close to LST. If off by ~180°, flip it.
+          const lst_deg = lst; // already computed above
+          const mcRA = ((Math.atan2(
+            Math.sin(tropicalMC * Math.PI / 180) * Math.cos(epsilonRad),
+            Math.cos(tropicalMC * Math.PI / 180)
+          ) * 180 / Math.PI) % 360 + 360) % 360;
+          
+          const diff = ((mcRA - lst_deg + 360) % 360);
+          if (diff > 90 && diff < 270) {
+            // Wrong hemisphere — flip 180°
+            tropicalMC = (tropicalMC + 180) % 360;
+          }
+
+          // True sidereal MC
+          let finalMC;
+          if (this.isTropical) {
+            finalMC = tropicalMC;
+          } else {
+            finalMC = (tropicalMC - this.ayanamsa + 360) % 360;
+          }
+          
+          const mcSign = this.getZodiacSign(finalMC);
+
+          return {
+            longitude: finalMC.toFixed(4),
+            sign: mcSign.sign,
+            position: this.formatDegree(mcSign),
+            degree: this.calculateDegreeDecimal(mcSign).toFixed(2)
+          };
+        } catch (error) {
+          console.error('Error calculating midheaven:', error);
+          throw error;
+        }
+      }
+      
+
+      calculateLunarNodes(astroTime) {
+        try {
+        
+          const jd = astroTime.ut + 2451545.0;
+          console.log('astroTime.ut raw:', astroTime.ut);
+// Expected: approximately -1291.74
+          const T = (jd - 2451545.0) / 36525;
+          
+        
+          let meanNode = 125.04452 - 1934.136261 * T + 
+                        0.0020708 * T * T + T * T * T / 450000;
+          meanNode = meanNode % 360;
+          if (meanNode < 0) meanNode += 360;
+          
+        
+          const northNode = this.isTropical ? ((meanNode % 360) + 360) % 360 : (meanNode - this.ayanamsa + 360) % 360;
+          const southNode = (northNode + 180) % 360;
+          
+          const nnSign = this.getZodiacSign(northNode);
+          const snSign = this.getZodiacSign(southNode);
+          
+          return {
+            north_node: {
+              longitude: northNode.toFixed(4),
+              sign: nnSign.sign,
+              position: this.formatDegree(nnSign),
+              degree: this.calculateDegreeDecimal(nnSign).toFixed(2)
+            },
+            south_node: {
+              longitude: southNode.toFixed(4),
+              sign: snSign.sign,
+              position: this.formatDegree(snSign),
+              degree: this.calculateDegreeDecimal(snSign).toFixed(2)
+            }
+          };
+        } catch (error) {
+          console.error('Error calculating lunar nodes:', error);
+          throw error;
+        }
+      }
+      
+
+    
+    // Fallback method in case of calculation errors
+    getFallbackHouses() {
+        const houses = [];
+        for (let i = 0; i < 12; i++) {
+            houses.push({
+                house: i + 1,
+                longitude: (i * 30).toFixed(6),
+                sign: 'Aries', // Default sign
+                position: '0°0\'0"',
+                degree: '0.00',
+                minutes: 0
+            });
+        }
+        return houses;
+    }
+    
+    // Improved degree formatting
+   
+    
+      calculateMidpoint(lon1, lon2) {
+  
+        lon1 = ((lon1 % 360) + 360) % 360;
+        lon2 = ((lon2 % 360) + 360) % 360;
+        
+      
+        let diff = lon2 - lon1;
+        
+      
+        if (diff > 180) {
+        
+          diff = diff - 360;
+        } else if (diff < -180) {
+        
+          diff = diff + 360;
+        }
+        
+      
+        let midpoint = lon1 + (diff / 2);
+        
+      
+        midpoint = ((midpoint % 360) + 360) % 360;
+        
+        return midpoint;
+      }
+
+      calculateCompositeChart(person1Data, person2Data) {
+        try {
+          
+          const natal1 = this.calculateNatalChart(person1Data);
+          const natal2 = this.calculateNatalChart(person2Data);
+
+        
+          const compositePlanets = {};
+          const planetNames = Object.keys(natal1.planets);
+
+          
+          for (const planetName of planetNames) {
+            const lon1 = parseFloat(natal1.planets[planetName].longitude); 
+      const lon2 = parseFloat(natal2.planets[planetName].longitude); 
+          
+            const midpoint = this.calculateMidpoint(lon1, lon2);
+
+            
+
+            const signInfo = this.getZodiacSign(midpoint);
+            compositePlanets[planetName] = {
+              longitude: midpoint.toFixed(4),
+              sign: signInfo.sign,
+              position: this.formatDegree(signInfo),
+              degree: this.calculateDegreeDecimal(signInfo).toFixed(2)
+            };
+          }
+
+          
+          const asc1 = parseFloat(natal1.ascendant.longitude);
+          const asc2 = parseFloat(natal2.ascendant.longitude);
+          
+          const compositeAscLon = this.calculateMidpoint(asc1, asc2);
+        
+          const compositeAscSign = this.getZodiacSign(compositeAscLon);
+          const compositeAscendant = {
+            longitude: compositeAscLon.toFixed(4),
+            sign: compositeAscSign.sign,
+            position: this.formatDegree(compositeAscSign),
+            degree: this.calculateDegreeDecimal(compositeAscSign).toFixed(2)
+          };
+
+    
+          const compositeHouses = [];
+
+
+          for (let i = 0; i < 12; i++) {
+            let cuspLon = (compositeAscLon + (i * 30)) % 360;
+            const signInfo = this.getZodiacSign(cuspLon);
+            compositeHouses.push({
+              house: i + 1,
+              longitude: cuspLon.toFixed(4),
+              sign: signInfo.sign,
+              position: this.formatDegree(signInfo),
+              degree: this.calculateDegreeDecimal(signInfo).toFixed(2)
+            });
+          }
+
+        
+          const compositeAspects = this.calculateAspects(compositePlanets);
+          const synastryAspects = this.calculateAspects(natal1.planets, natal2.planets);
+          
+          const mc1 = parseFloat(natal1.midheaven.longitude);
+          const mc2 = parseFloat(natal2.midheaven.longitude);
+          const compositeMCLon = this.calculateMidpoint(mc1, mc2);
+          const compositeMCSign = this.getZodiacSign(compositeMCLon);
+          const compositeMidheaven = {
+            longitude: compositeMCLon.toFixed(4),
+            sign: compositeMCSign.sign,
+            position: this.formatDegree(compositeMCSign),
+            degree: this.calculateDegreeDecimal(compositeMCSign).toFixed(2)
+          };
+          
+          const compositeWithHouses = this.assignPlanetsToHouses(compositePlanets, compositeHouses);
+
+return {
+  chart_type: 'Composite',
+  person1: {
+    birth_info: natal1.birth_info,
+    planets: natal1.planets,
+    ascendant: natal1.ascendant,
+    midheaven: natal1.midheaven,
+    houses: natal1.houses,
+    aspects: natal1.aspects,
+  },
+  person2: {
+    birth_info: natal2.birth_info,
+    planets: natal2.planets,
+    ascendant: natal2.ascendant,
+    midheaven: natal2.midheaven,
+    houses: natal2.houses,
+    aspects: natal2.aspects,
+  },
+  composite: {
+    planets: compositeWithHouses, 
+    ascendant: compositeAscendant,
+    midheaven: compositeMidheaven,
+    houses: compositeHouses,
+    aspects: compositeAspects
+  },
+  synastry_aspects: synastryAspects
+};
+
+
+          
+        } catch (error) {
+          console.error('Error in calculateCompositeChart:', error);
+          throw new Error(`Composite chart calculation failed: ${error.message}`);
+        }
+      }
+
+    
+      calculateSynastryChart(person1Data, person2Data) {
+        try {
+        
+          const natal1 = this.calculateNatalChart(person1Data);
+          const natal2 = this.calculateNatalChart(person2Data);
+
+        
+          const synastryAspects = this.calculateAspects(natal1.planets, natal2.planets);
+
+          return {
+            chart_type: 'Synastry',
+            person1: {
+              birth_info: natal1.birth_info,
+              planets: natal1.planets,
+              ascendant: natal1.ascendant,
+              houses: natal1.houses,
+              midheaven: natal1.midheaven,
+              aspects: natal1.aspects,
+            },
+            person2: {
+              birth_info: natal2.birth_info,
+              planets: natal2.planets,
+              ascendant: natal2.ascendant,
+              houses: natal2.houses,
+              midheaven: natal2.midheaven,
+              aspects: natal2.aspects,
+            },
+            synastry_aspects: synastryAspects
+          };
+        } catch (error) {
+          
+          console.error('Error in calculateSynastryChart:', error);
+          throw new Error(`Synastry chart calculation failed: ${error.message}`);
+        }
+      }
+
+      calculateTransitChart(birthData, transitDate) {
+        try {
+          const natal = this.calculateNatalChart(birthData);
+          const progressed = this.calculateProgressions(birthData, transitDate, 'secondary');
+
+          const transitTime = this.createAstroTime(
+            transitDate.year,
+            transitDate.month,
+            transitDate.day,
+            transitDate.hour || 12,
+            transitDate.minute || 0
+          );
+
+          const transitPlanets = this.calculatePlanetaryPositions(transitTime);
+          const transitAscendant = this.calculateAscendant(
+            transitTime,
+            transitDate.latitude || birthData.latitude,
+            transitDate.longitude || birthData.longitude
+          );
+
+          const natalToProgressed = this.calculateAspects(natal.planets, progressed.planets);
+          const natalToTransit = this.calculateAspects(natal.planets, transitPlanets);
+          const progressedToTransit = this.calculateAspects(progressed.planets, transitPlanets);
+
+          return {
+            chart_type: 'Transit (Triwheel)',
+            natal: {
+              planets: natal.planets,
+              ascendant: natal.ascendant,
+              houses: natal.houses,
+              midheaven: natal.midheaven,
+              aspects: natal.aspects,
+            },
+            progressed: {
+              planets: progressed.planets,
+              ascendant: progressed.ascendant,
+              progression_info: progressed.progression_info
+            },
+            transit: {
+              planets: transitPlanets,
+              ascendant: transitAscendant,
+              date: `${transitDate.year}-${String(transitDate.month).padStart(2, '0')}-${String(transitDate.day).padStart(2, '0')}`,
+              time: `${String(transitDate.hour || 12).padStart(2, '0')}:${String(transitDate.minute || 0).padStart(2, '0')}`
+            },
+            aspects: {
+              natal_to_progressed: natalToProgressed,
+              natal_to_transit: natalToTransit,
+              progressed_to_transit: progressedToTransit
+            }
+          };
+        } catch (error) {
+          console.error('Error in calculateTransitChart:', error);
+          throw error;
+        }
+      }
+
+
+   
+    
+
+
+      assignPlanetsToHouses(planets, houses) {
+        const houseStartAngles = houses.map(h => parseFloat(h.longitude));
+        const asc = houseStartAngles[0]; // H1 cusp = ASC
+
+        console.log('=== ASSIGN PLANETS TO HOUSES ===');
+        console.log('H1(ASC):', asc.toFixed(2));
+        console.log('All cusps:', houseStartAngles.map((a,i) => `H${i+1}:${a.toFixed(1)}`).join(' '));
+
+        // Convert all cusps to be relative to ASC (0-360 arc from ASC going forward)
+        const cuspsFromAsc = houseStartAngles.map(c => ((c - asc + 360) % 360));
+        console.log('Cusps relative to ASC:', cuspsFromAsc.map((a,i) => `H${i+1}:${a.toFixed(1)}`).join(' '));
+
+        console.log('=== SPACE CHECK ===');
+console.log('Sun longitude (should be SIDEREAL ~30°):', parseFloat(planets['Sun']?.longitude).toFixed(4));
+console.log('H1 cusp longitude (should be SIDEREAL ~171°):', houseStartAngles[0].toFixed(4));
+console.log('H2 cusp:', houseStartAngles[1].toFixed(4));
+console.log('H8 cusp:', houseStartAngles[7].toFixed(4));
+console.log('Are planets and cusps in the same space? Sun should fall between H8 and H9 cusps.');
+console.log('===================');
+        const getHouseNumber = (planetLon) => {
+          let lon = ((planetLon % 360) + 360) % 360;
+          // Distance from ASC going forward
+          const distFromAsc = ((lon - asc + 360) % 360);
+
+          // Find which house segment this falls in
+          // cuspsFromAsc[i] = start of house i+1, cuspsFromAsc[i+1] = start of house i+2
+          for (let i = 0; i < 12; i++) {
+            const start = cuspsFromAsc[i];
+            const end = cuspsFromAsc[(i + 1) % 12];
+            
+            if (end > start) {
+              // Normal segment
+              if (distFromAsc >= start && distFromAsc < end) return i + 1;
+            } else {
+              // Wraps around (last house back to H1)
+              if (distFromAsc >= start || distFromAsc < end) return i + 1;
+            }
+          }
+          console.warn(`Could not assign house for lon ${lon} (distFromAsc=${distFromAsc.toFixed(2)}), defaulting to 1`);
+          return 1;
+        };
+
+        const result = {};
+        for (const [name, data] of Object.entries(planets)) {
+          const lon = parseFloat(data.longitude);
+          const distFromAsc = ((lon - asc + 360) % 360);
+          const house = getHouseNumber(lon);
+          console.log(`  ${name}: ${lon.toFixed(2)}° distFromASC=${distFromAsc.toFixed(2)}° → House ${house}`);
+          result[name] = {
+            ...data,
+            house
+          };
+        }
+        console.log('================================');
+        return result;
+      }
+
+      calculateNatalChart(birthData) {
+
+        try {
+          const { year, month, day, hour, minute, latitude, longitude, timezone } = birthData;
+      
+          if (!year || !month || !day || hour === undefined || minute === undefined) {
+            throw new Error('Missing required birth date/time parameters');
+          }
+      
+          if (latitude === undefined || longitude === undefined) {
+            throw new Error('Missing latitude or longitude');
+          }
+      
+        
+          const astroTime = this.createAstroTime(year, month, day, hour, minute, latitude, longitude, timezone);
+          const planets = this.calculatePlanetaryPositions(astroTime);
+          const ascendant = this.calculateAscendant(astroTime, latitude, longitude);
+          const midheaven = this.calculateMidheaven(astroTime, latitude, longitude); 
+          const lunarNodes = this.calculateLunarNodes(astroTime); 
+          const houses = this.calculateHouseCusps(astroTime, latitude, longitude, 'placidus');
+          const aspects = this.calculateAspects(planets);
+          console.log('=== HOUSE CUSPS DEBUG ===');
+          houses.forEach(h => console.log(`House ${h.house}: ${h.longitude}° (${h.sign})`));
+          console.log('Sun longitude:', planets.Sun.longitude);
+          console.log('=========================');
+
+          const planetsWithHouses = this.assignPlanetsToHouses(planets, houses);
+       
+
+          console.log('=== PLANET HOUSE SUMMARY ===');
+          console.log(`ASC: ${ascendant.longitude}° (${ascendant.sign})`);
+          Object.entries(planetsWithHouses).forEach(([name, data]) => {
+            console.log(`  ${name}: ${data.longitude}° ${data.sign} → House ${data.house}`);
+          });
+          console.log('============================');
+
+          const composition = this.calculateElementsAndModalities(planetsWithHouses, ascendant);
+    const wheelData = this.generateChartWheelData(planetsWithHouses, ascendant, houses);
+
+    console.log('birthData received:', JSON.stringify({
+      year: birthData.year,
+      month: birthData.month, 
+      day: birthData.day,
+      hour: birthData.hour,
+      minute: birthData.minute,
+      timezone: birthData.timezone
+    }));
+
+    return {
+      chart_type: 'Natal',
+      birth_info: {
+        date: `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`,
+        time: `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`,
+        location: { latitude, longitude },
+        timezone: timezone || 'UTC',
+        chart_ruler: this.getChartRuler(ascendant.sign)  
+      },
+      planets: planetsWithHouses,
+      ascendant: ascendant,
+      midheaven: midheaven,
+      lunar_nodes: lunarNodes,
+      houses: houses,
+      aspects: aspects,
+      composition: composition, 
+      chart_wheel: wheelData     
+    };
+
+        } catch (error) {
+          console.error('Error in calculateNatalChart:', error);
+          throw new Error(`Natal chart calculation failed: ${error.message}`);
+        }
+      }
+    }
+
+
+    async function testCalculator() {
+      const birthData = {
+        year: 1996,
+        month: 5,
+        day: 19,
+        hour: 17,
+        minute: 47,
+        latitude: 43.8563707,
+        longitude: -79.3376825,
+        timezone: 'America/Toronto'
+      };
+      const year = birthData.year;  // ← use birthData directly
+    // For natal chart
+    const SiderealAstrologyCalculator = require('../util/calculator');
+    const calculator = new SiderealAstrologyCalculator('true_sidereal', birthData.year);
+
+      const targetDate = {
+        year: 2025,
+        month: 10,
+        day: 27,
+        hour: 12,
+        minute: 0
+      };
+      
+      try {
+        const progressions = calculator.calculateProgressions(birthData, targetDate);
+        
+    
+        return progressions;
+      } catch (error) {
+        console.error('❌ Error:', error);
+      }
+    }
+
+    
+    if (require.main === module) {
+      testCalculator();
+    }
+
+    module.exports = SiderealAstrologyCalculator;

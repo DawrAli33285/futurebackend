@@ -1,0 +1,43 @@
+{
+  "name": "backend",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "server": "nodemon ./index.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "@nrweb/astro-calc": "^1.0.0",
+    "@stripe/stripe-js": "^8.1.0",
+    "astronomia": "^4.2.0",
+    "astronomy-engine": "^2.1.19",
+    "axios": "^1.13.1",
+    "bcrypt": "^6.0.0",
+    "circular-natal-horoscope-js": "^1.1.0",
+    "cloudinary": "^2.8.0",
+    "cors": "^2.8.5",
+    "csv-parser": "^3.2.0",
+    "dotenv": "^17.2.3",
+    "express": "^5.1.0",
+    "geo-tz": "^8.1.6",
+    "jsonwebtoken": "^9.0.2",
+    "luxon": "^3.7.2",
+    "moment-timezone": "^0.6.0",
+    "mongoose": "^8.19.2",
+    "multer": "^2.1.1",
+    "node-cron": "^4.2.1",
+    "node-fetch": "^3.3.2",
+    "nodemailer": "^7.0.10",
+    "nodemon": "^3.1.10",
+    "request": "^2.88.2",
+    "socket.io": "^4.8.1",
+    "stripe": "^19.1.0",
+    "suncalc": "^1.9.0",
+    "svg2img": "^1.0.0-beta.2",
+    "uuid": "^13.0.0"
+  }
+}
