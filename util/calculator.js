@@ -56,8 +56,8 @@
           if (ayanamsaType === 'tropical') {
             this.ayanamsa = 0;
           } else if (ayanamsaType === 'true_sidereal') {
-          // Midpoint True Sidereal ayanamsa base for J2000 is ~25.0°
-          this.ayanamsa = 30.08 + (PRECESSION_RATE * yearsSince2000);        // for ASC/houses
+        
+          this.ayanamsa = 30.08 + (PRECESSION_RATE * yearsSince2000);    
           this.planetAyanamsa = 28.47 + (PRECESSION_RATE * yearsSince2000); 
           } else {
             const base = { lahiri: 23.85, raman: 22.463, krishnamurti: 23.900, fagan_bradley: 24.836 };
@@ -84,10 +84,10 @@
             );
             const utc = localDt.toUTC();
             utcDate = new Date(Date.UTC(utc.year, utc.month-1, utc.day, utc.hour, utc.minute, 0));
-            // local time stays as the input (year, month-1, day, hour, minute)
+          
           } else {
             utcDate = new Date(Date.UTC(year, month-1, day, hour, minute, 0));
-            // timezone is UTC — local time = UTC time, no change needed
+           
           }
         
           const astroTimeObj = astronomy.MakeTime(utcDate);
@@ -99,8 +99,8 @@
         
 
           if (timezone && timezone !== 'UTC' && timezone !== '+00:00') {
-            // UTC date was computed above — but pkg needs LOCAL time
-            astroTimeObj._pkgHour   = hour;   // original local hour passed in
+          
+            astroTimeObj._pkgHour   = hour;  
             astroTimeObj._pkgMinute = minute;
           } else {
             astroTimeObj._pkgHour   = hour;
@@ -137,7 +137,7 @@
         getZodiacSign(longitude) {
           let lon = ((longitude % 360) + 360) % 360;
         
-          // IAU sidereal sign boundaries (13 signs including Ophiuchus)
+        
           const siderealBoundaries = [
             { name: 'Aries',       start: 0,   end: 25  },
             { name: 'Taurus',      start: 25,  end: 62  },
@@ -157,7 +157,7 @@
           for (const sign of siderealBoundaries) {
             if (lon >= sign.start && lon < sign.end) {
               const degreeInSign = lon - sign.start;
-              // Validate it's within expected range
+             
               if (degreeInSign < 0 || degreeInSign >= (sign.end - sign.start)) {
                 console.warn(`Degree overflow: ${lon} in ${sign.name}, raw offset=${degreeInSign}`);
               }
@@ -170,7 +170,7 @@
             }
           }
         
-          // Fallback (should never hit)
+      
           return {
             sign: 'Pisces',
             degree: lon - 323,
@@ -186,13 +186,13 @@
           let min = Math.floor(totalMinutes);
           let sec = Math.round((totalMinutes - min) * 60);
           
-          // Handle second overflow
+        
           if (sec >= 60) {
             sec = 0;
             min += 1;
           }
           
-          // Handle negative seconds
+         
           if (sec < 0) {
             sec = 0;
           }
@@ -204,7 +204,7 @@
             deg += 1;
         }
           
-          // Handle negative minutes
+       
           if (min < 0) {
             min = 0;
           }
@@ -230,9 +230,9 @@
         }
 
         computeLST(astroTime, longitude) {
-          // Use astronomy-engine's built-in sidereal time — no manual GMST needed
-          const gst = astronomy.SiderealTime(astroTime); // returns GST in hours
-          let lst = ((gst * 15 + longitude) % 360 + 360) % 360; // convert to degrees
+         
+          const gst = astronomy.SiderealTime(astroTime); 
+          let lst = ((gst * 15 + longitude) % 360 + 360) % 360; 
           return lst;
         }
         
@@ -260,13 +260,13 @@
               language: 'en'
             });
         
-            // Discover the correct property path
+            
             console.log('=== HOUSE STRUCTURE DEBUG ===');
             console.log('Houses length:', horoscope.Houses.length);
             console.log('House[0] full:', JSON.stringify(horoscope.Houses[0], null, 2));
             console.log('=============================');
         
-            // Try all possible paths the package might use
+           
             const getCusp = (house) => {
               if (house?.ChartPosition?.StartPosition?.Ecliptic?.DecimalDegrees !== undefined)
                 return house.ChartPosition.StartPosition.Ecliptic.DecimalDegrees;
@@ -278,7 +278,7 @@
                 return house.Ecliptic.DecimalDegrees;
               if (house?.degree !== undefined)
                 return house.degree;
-              // Last resort - log what we actually have
+            
               console.error('Unknown house structure:', JSON.stringify(Object.keys(house)));
               return 0;
             };
@@ -299,7 +299,7 @@
                 houses.push({
                   house: i + 1,
                   longitude:          siderealCusp.toFixed(4),
-                  tropicalLongitude:  tropicalCusps[i].toFixed(4),  // ← add this
+                  tropicalLongitude:  tropicalCusps[i].toFixed(4),  
                   sign:               signInfo.sign,
                   position:           this.formatDegree(signInfo),
                   degree:             this.calculateDegreeDecimal(signInfo).toFixed(2),
@@ -313,7 +313,7 @@
         
           } catch (error) {
             console.error('Error calculating house cusps:', error);
-            console.error('Error calculating house cusps:', error); // ← already exists
+            console.error('Error calculating house cusps:', error); 
             console.error('FALLING BACK TO DEFAULT HOUSES'); 
             return this.getFallbackHouses();
           }
@@ -322,9 +322,7 @@
 
         calculateDegreeDecimal(degreeInfo) {
           let degree = parseFloat(degreeInfo.degree);
-          
-          // ADD THIS VALIDATION:
-          // Ensure degree is within valid range for the sign
+         
           if (degree < 0) degree = 0;
           
           return degree;
@@ -345,7 +343,7 @@
                 };
                 const ecliptic = astronomy.Ecliptic(geoVector);
                 const rawTropicalLon = ((ecliptic.elon % 360) + 360) % 360;
-                // In calculatePlanet(), after getting rawTropicalLon:
+               
                 
                 const finalLon = this.isTropical
                 ? rawTropicalLon
@@ -422,7 +420,7 @@
                 tropicalLon = (tropicalLon - this.ayanamsa + 360) % 360;
               }
 
-          // Store raw tropical before shifting
+       
   const moonTropicalRaw = ((moonEcl.elon % 360) + 360) % 360;
   let moonSiderealLon = moonTropicalRaw;
   if (!this.isTropical) {
@@ -453,11 +451,10 @@
   planets.Mars = calculatePlanet('Mars');
   planets.Jupiter = calculatePlanet('Jupiter');
   try {
-   // Try getting Saturn via Equatorial then converting
-const saturnEquatorial = astronomy.Equator('Saturn', astroTime, true, true);
-const saturnEcliptic = astronomy.EclipticGeoMoon(astroTime); // wrong, use below
 
-// Actually: use the correct API
+const saturnEquatorial = astronomy.Equator('Saturn', astroTime, true, true);
+const saturnEcliptic = astronomy.EclipticGeoMoon(astroTime); 
+
 const saturnHorizon = astronomy.GeoVector('Saturn', astroTime, false);
 const saturnEcl = astronomy.Ecliptic(saturnHorizon);
 const saturnTropical = ((saturnEcl.elon % 360) + 360) % 360;
@@ -513,7 +510,7 @@ console.log('[SATURN v2] tropical:', saturnTropical);
         hour: astroTime._pkgHour,
         minute: astroTime._pkgMinute
       });
-  // In calculateAscendant, temporarily hardcode to verify:
+  
   const origin = new Origin({
     year:    astroTime._pkgYear,
     month:   astroTime._pkgMonth,
@@ -540,8 +537,8 @@ console.log('[SATURN v2] tropical:', saturnTropical);
       const finalAsc = this.isTropical
         ? ((tropicalAsc % 360) + 360) % 360
         : (tropicalAsc - this.ayanamsa + 360) % 360;
-// Use a separate 12-sign getter for Ascendant and house cusps
-const ascSign = this.getTropicalSign(finalAsc); // standard 30° equal signs
+
+const ascSign = this.getTropicalSign(finalAsc); 
       console.log('[ASC COMPARISON]');
   console.log('tropicalAsc from circular package:', tropicalAsc.toFixed(4));
   console.log('ayanamsa being subtracted:', this.ayanamsa.toFixed(4));
@@ -956,7 +953,7 @@ const ascSign = this.getTropicalSign(finalAsc); // standard 30° equal signs
           
             const jd = astroTime.ut + 2451545.0;
             console.log('astroTime.ut raw:', astroTime.ut);
-  // Expected: approximately -1291.74
+ 
             const T = (jd - 2451545.0) / 36525;
             
           
@@ -994,14 +991,14 @@ const ascSign = this.getTropicalSign(finalAsc); // standard 30° equal signs
         
 
       
-      // Fallback method in case of calculation errors
+      
       getFallbackHouses() {
           const houses = [];
           for (let i = 0; i < 12; i++) {
               houses.push({
                   house: i + 1,
                   longitude: (i * 30).toFixed(6),
-                  sign: 'Aries', // Default sign
+                  sign: 'Aries', 
                   position: '0°0\'0"',
                   degree: '0.00',
                   minutes: 0
@@ -1010,7 +1007,7 @@ const ascSign = this.getTropicalSign(finalAsc); // standard 30° equal signs
           return houses;
       }
       
-      // Improved degree formatting
+   
     
       
         calculateMidpoint(lon1, lon2) {
@@ -1249,7 +1246,7 @@ const ascSign = this.getTropicalSign(finalAsc); // standard 30° equal signs
 
 
         assignPlanetsToHouses(planets, houses) {
-          // Houses are defined in tropical space — use tropical cusps and tropical planet positions
+       
           const tropicalCusps = houses.map(h => 
             parseFloat(h.tropicalLongitude || h.longitude)
           );
@@ -1259,7 +1256,7 @@ console.log('[HOUSE ASSIGN] Moon tropical:', parseFloat(planets.Moon?.tropicalLo
           const asc = tropicalCusps[0];
           const cuspsFromAsc = tropicalCusps.map(c => ((c - asc + 360) % 360));
         
-          // Sort cusps to handle non-monotonic Placidus cusps correctly
+        
           const sortedCusps = cuspsFromAsc
             .map((dist, i) => ({ dist, houseNum: i + 1 }))
             .sort((a, b) => a.dist - b.dist);
@@ -1373,8 +1370,8 @@ console.log('[HOUSE ASSIGN] Moon tropical:', parseFloat(planets.Moon?.tropicalLo
           longitude: -79.3376825,
           timezone: 'America/Toronto'
         };
-        const year = birthData.year;  // ← use birthData directly
-      // For natal chart
+        const year = birthData.year; 
+
       const SiderealAstrologyCalculator = require('../util/calculator');
       const calculator = new SiderealAstrologyCalculator('true_sidereal', birthData.year);
 

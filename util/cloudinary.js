@@ -1,7 +1,7 @@
 const cloudinary = require('cloudinary').v2;
 const path=require('path')
 const fs=require('fs')
-// Configuration 
+
 cloudinary.config({
   cloud_name:"dbjwbveqn",
   api_key: "774241215571685",

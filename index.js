@@ -11,8 +11,6 @@ const {newsletterEmailManualTrigger,newsletterEmailRunCron}=require('./util/dail
 app.use(cors());
 
 
-const webhookRoute = require('./routes/webhook');
-app.use('/api',webhookRoute);
 
 
 app.use(express.json());
@@ -24,7 +22,7 @@ const authRoutes = require('./routes/auth');
 const calculatorRoutes = require('./routes/calculator');
 const astrologySettingsRoutes = require('./routes/astrologySettings');
 const messagesRoutes = require('./routes/messages');
-const subscriptionRoutes = require('./routes/subscription');
+
 const chartRoutes=require('./routes/chart')
 const accountRoutes=require('./routes/account')
 const contactRoutes=require('./routes/contact')
@@ -34,7 +32,7 @@ app.use('/api',authRoutes);
 app.use('/api',calculatorRoutes);
 app.use('/api',astrologySettingsRoutes);
 app.use('/api',messagesRoutes);
-app.use('/api',subscriptionRoutes);
+
 app.use('/api',chartRoutes)
 app.use('/api',accountRoutes)
 app.use('/api',contactRoutes)
@@ -67,7 +65,7 @@ runCron();
 
 newsletterEmailRunCron()
 
-// manualTrigger();
+manualTrigger();
 //newsletterEmailManualTrigger()
 
 

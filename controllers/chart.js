@@ -2,7 +2,7 @@ const compositechart = require("../models/compositechart")
 const graph = require("../models/graph")
 const mainchart = require("../models/mainchart")
 const snyastry = require("../models/snyastry")
-const subscription = require("../models/subscription")
+
 const transitchart = require("../models/transitchart")
 const multer = require('multer');
 const csvParser = require('csv-parser');
@@ -439,11 +439,10 @@ const cleanupFiles = (files) => {
         const totalCharts = await mainchart.countDocuments({userId:req.user._id});
         const hasMore = skip + charts.length < totalCharts;
         
-        let subscriptionData = await subscription.findOne({userId:req.user._id,status:{$ne:'canceled'}})
-        
+      
         return res.status(200).json({
             charts,
-            subscription:subscriptionData,
+          
             hasMore,
             currentPage: page,
             totalPages: Math.ceil(totalCharts / limit)
@@ -463,7 +462,7 @@ const cleanupFiles = (files) => {
 module.exports.getTransitChart=async(req,res)=>{
     try{
 let charts=await transitchart.find({userId:req.user._id})
-let subscriptionData=await subscription.findOne({userId:req.user._id,status:{$ne:'canceled'}})
+
 return res.status(200).json({
 charts
 })
@@ -491,11 +490,10 @@ module.exports.getCompositeChart=async(req,res)=>{
       const totalCharts = await compositechart.countDocuments({userId:req.user._id});
       const hasMore = skip + charts.length < totalCharts;
       
-      let subscriptionData = await subscription.findOne({userId:req.user._id,status:{$ne:'canceled'}})
       
       return res.status(200).json({
           charts,
-          subscription: subscriptionData,
+         
           hasMore,
           currentPage: page,
           totalPages: Math.ceil(totalCharts / limit)
@@ -524,11 +522,10 @@ module.exports.getSynastryChart=async(req,res)=>{
       const totalCharts = await snyastry.countDocuments({userId:req.user._id});
       const hasMore = skip + charts.length < totalCharts;
       
-      let subscriptionData = await subscription.findOne({userId:req.user._id,status:{$ne:'canceled'}})
-      
+ 
       return res.status(200).json({
           charts,
-          subscription: subscriptionData,
+      
           hasMore,
           currentPage: page,
           totalPages: Math.ceil(totalCharts / limit)
@@ -556,11 +553,10 @@ module.exports.getTransitGraph=async(req,res)=>{
       const totalCharts = await graph.countDocuments({userId:req.user._id});
       const hasMore = skip + charts.length < totalCharts;
       
-      let subscriptionData = await subscription.findOne({userId:req.user._id,status:{$ne:'canceled'}})
-      
+   
       return res.status(200).json({
           charts,
-          subscription: subscriptionData,
+          
           hasMore,
           currentPage: page,
           totalPages: Math.ceil(totalCharts / limit)

@@ -36,7 +36,7 @@ const nodemailer = require('nodemailer');
 const {cloudinaryUploadImage}=require('../util/cloudinary')
 const cron = require('node-cron');
 const axios = require('axios');
-const subscription = require('../models/subscription');
+
 
 const APP_ID = '37dc92a5-a64e-45fa-8566-1fc9d1d648f1'.trim();
 const APP_SECRET = 'cd40ba3f33a87de9eee56063e276f77d2a8080fd1a5a8674f466f0c01dbbba425d89fab89e894f0849c9831b0306a6e22b5bf0bd198f36b1cd01e9a8b8c6621cc9591f6cdf9e7f1fb7193262083a47ca9ae90ec1bc935f7b53cd6d9eed9a7e29930012498f0e71ea38fe48cf10fc2c1d'.trim();
@@ -430,7 +430,7 @@ async function getAspectInterpretation(transitPlanet, natalPlanet, aspect) {
         'Authorization': `Bearer ${OPENAI_API_KEY}`
       },
       body: JSON.stringify({
-        model: 'gpt-4o-mini', // Cost-effective model
+        model: 'gpt-4o-mini', 
         messages: [
           {
             role: 'system',
@@ -456,91 +456,91 @@ async function getAspectInterpretation(transitPlanet, natalPlanet, aspect) {
   } catch (error) {
     console.error('Error fetching interpretation:', error);
     
-    // Fallback to static interpretations
+   
     return getFallbackInterpretation(transitPlanet, natalPlanet, aspect);
   }
 }
 
 function getFallbackInterpretation(transitPlanet, natalPlanet, aspect) {
   const interpretations = {
-    // ☀️ SUN
+   
     'Sun Conjunction': 'Vitality and self-expression are amplified. A powerful time for new beginnings.',
     'Sun Trine': 'Harmonious energy flow. Things come easily and naturally today.',
     'Sun Sextile': 'Opportunities for growth and positive connections arise. Take initiative.',
     'Sun Square': 'Challenges test your willpower. Push through resistance with confidence.',
     'Sun Opposition': 'Awareness through contrast. Balance opposing forces in your life.',
   
-    // 🌙 MOON
+
     'Moon Conjunction': 'Emotional intensity and heightened intuition. Trust your feelings.',
     'Moon Trine': 'Emotional harmony and comfort. A nurturing day for relationships.',
     'Moon Sextile': 'Emotional clarity and social ease. Express your feelings openly.',
     'Moon Square': 'Emotional tension or restlessness. Take time to process inner needs.',
     'Moon Opposition': 'Emotional awareness through others. Seek emotional balance.',
   
-    // ☿ MERCURY
+   
     'Mercury Conjunction': 'Mental clarity and communication focus. Share your ideas confidently.',
     'Mercury Trine': 'Easy communication and clear thinking. Great for meaningful conversations.',
     'Mercury Sextile': 'Positive exchanges and good news. Network and connect.',
     'Mercury Square': 'Mental stress or miscommunication possible. Double-check details.',
     'Mercury Opposition': 'Conflicting viewpoints arise. Listen as much as you speak.',
   
-    // ♀ VENUS
+  
     'Venus Conjunction': 'Love, beauty, and pleasure are emphasized. Enjoy life’s sweetness.',
     'Venus Trine': 'Romantic harmony and social grace. A fortunate day for relationships.',
     'Venus Sextile': 'Pleasant surprises and social opportunities. Say yes to invitations.',
     'Venus Square': 'Relationship tension or financial strain. Avoid impulsive decisions.',
     'Venus Opposition': 'Relationship awareness grows through contrast. Find compromise and balance.',
   
-    // ♂ MARS
+   
     'Mars Conjunction': 'High energy and assertiveness. Take bold action but avoid aggression.',
     'Mars Trine': 'Courageous action flows naturally. You have the strength to succeed.',
     'Mars Sextile': 'Motivated and productive energy. A great time to start new projects.',
     'Mars Square': 'Frustration or conflict may arise. Channel energy constructively.',
     'Mars Opposition': 'Power struggles possible. Choose your battles wisely.',
   
-    // ♃ JUPITER
+  
     'Jupiter Conjunction': 'Expansion and opportunity. Think big but act with wisdom.',
     'Jupiter Trine': 'Luck and growth come easily. Your optimism attracts good fortune.',
     'Jupiter Sextile': 'Positive developments and learning opportunities. Stay open to growth.',
     'Jupiter Square': 'Overconfidence or excess possible. Keep expectations realistic.',
     'Jupiter Opposition': 'Balance optimism with realism. Avoid overextending yourself.',
   
-    // ♄ SATURN
+   
     'Saturn Conjunction': 'Reality checks and responsibility. Build strong foundations.',
     'Saturn Trine': 'Discipline pays off. Hard work brings lasting results.',
     'Saturn Sextile': 'Structured progress and steady growth. Stay consistent.',
     'Saturn Square': 'Obstacles test patience and endurance. Persevere with discipline.',
     'Saturn Opposition': 'External pressure increases. Reorganize priorities and boundaries.',
   
-    // ♅ URANUS
+   
     'Uranus Conjunction': 'Revolutionary change and awakening. Embrace the unexpected.',
     'Uranus Trine': 'Innovation flows smoothly. Break free from routine.',
     'Uranus Sextile': 'Creative breakthroughs and liberating opportunities. Try something new.',
     'Uranus Square': 'Sudden disruptions or surprises. Stay flexible and adaptable.',
     'Uranus Opposition': 'Freedom versus responsibility. Balance independence with commitment.',
   
-    // ♆ NEPTUNE
+   
     'Neptune Conjunction': 'Spiritual awakening and dissolving boundaries. Trust your intuition.',
     'Neptune Trine': 'Creative inspiration and heightened intuition. Dream big with purpose.',
     'Neptune Sextile': 'Compassion and artistic flow. Express imagination freely.',
     'Neptune Square': 'Confusion or illusion possible. Seek clarity and avoid escapism.',
     'Neptune Opposition': 'Fantasy versus reality. Ground dreams in practical action.',
   
-    // ♇ PLUTO
+    
     'Pluto Conjunction': 'Deep transformation and rebirth. Let go of what no longer serves you.',
     'Pluto Trine': 'Powerful regeneration and empowerment. Positive change unfolds smoothly.',
     'Pluto Sextile': 'Opportunities for deep healing and transformation arise. Embrace growth.',
     'Pluto Square': 'Intense pressure sparks evolution. Face your shadows courageously.',
     'Pluto Opposition': 'Power dynamics surface. Transformation comes through confrontation.',
   
-    // ⚷ CHIRON
+   
     'Chiron Conjunction': 'Healing comes through awareness. Pain becomes wisdom.',
     'Chiron Trine': 'Gentle healing and empathy. Share your journey to inspire others.',
     'Chiron Sextile': 'Healing opportunities appear. Be open to emotional growth.',
     'Chiron Square': 'Old wounds resurface for healing. Face pain with compassion.',
     'Chiron Opposition': 'Healing through relationship mirrors. Recognize yourself in others.',
   
-    // ☊ NORTH NODE
+   
     'North Node Conjunction': 'Destiny calls. Move toward your soul’s purpose.',
     'North Node Trine': 'You’re aligned with your life path. Doors open naturally.',
     'North Node Sextile': 'Opportunities for growth align with your purpose. Take steady steps.',
@@ -550,57 +550,57 @@ function getFallbackInterpretation(transitPlanet, natalPlanet, aspect) {
   
   
   const specificInterpretations = {
-    // ☀️ SUN
+   
     'Jupiter Conjunction Sun': 'A period of confidence and success begins. Your optimism shines brightly.',
     'Saturn Conjunction Sun': 'A time of responsibility and maturity. Define your goals clearly.',
     'Uranus Conjunction Sun': 'Radical self-reinvention. Break free from limiting patterns.',
     'Neptune Conjunction Sun': 'Spiritual identity shift. Your ego dissolves into higher purpose.',
     'Pluto Conjunction Sun': 'Profound transformation of identity. You emerge renewed and empowered.',
   
-    // 🌙 MOON
+    
     'Jupiter Conjunction Moon': 'Emotional expansion and family blessings. Joy grows within your home life.',
     'Saturn Conjunction Moon': 'Emotional maturity develops. Time to set healthy boundaries.',
     'Uranus Conjunction Moon': 'Emotional liberation and breakthrough. Expect surprising shifts.',
     'Neptune Conjunction Moon': 'Heightened sensitivity and empathy. Protect emotional boundaries.',
     'Pluto Conjunction Moon': 'Emotional catharsis and deep healing. Inner transformation unfolds.',
   
-    // ☿ MERCURY
+    
     'Jupiter Conjunction Mercury': 'Expanded thinking and communication success. Speak with confidence.',
     'Saturn Conjunction Mercury': 'Serious study and disciplined thought. Master complex subjects.',
     'Uranus Conjunction Mercury': 'Sudden insights and innovative ideas. Your mind awakens to new truths.',
     'Neptune Conjunction Mercury': 'Inspired yet dreamy thinking. Clarify facts before acting.',
     'Pluto Conjunction Mercury': 'Intense focus and transformative communication. Uncover hidden knowledge.',
   
-    // ♀ VENUS
+  
     'Jupiter Conjunction Venus': 'Love and abundance expand. Relationships and finances thrive.',
     'Saturn Conjunction Venus': 'Relationship reality check. Define values and commitment.',
     'Uranus Conjunction Venus': 'Unexpected love or social changes. Embrace freedom in connections.',
     'Neptune Conjunction Venus': 'Idealized or spiritual love. Stay grounded in reality.',
     'Pluto Conjunction Venus': 'Intense, transformative love. Deep emotional and financial shifts.',
   
-    // ♂ MARS
+  
     'Jupiter Conjunction Mars': 'Tremendous drive and courage. Take bold steps toward your ambitions.',
     'Saturn Conjunction Mars': 'Disciplined energy and endurance. Patience brings mastery.',
     'Uranus Conjunction Mars': 'Explosive energy and sudden impulses. Direct power wisely.',
     'Neptune Conjunction Mars': 'Scattered motivation or confusion. Focus your intentions clearly.',
     'Pluto Conjunction Mars': 'Immense power and will. Channel determination ethically.',
   
-    // ♃ JUPITER
+   
     'Saturn Conjunction Jupiter': 'Practical optimism. Balance vision with discipline.',
     'Uranus Conjunction Jupiter': 'Sudden breakthroughs and liberation. Lucky opportunities arise.',
     'Neptune Conjunction Jupiter': 'Spiritual expansion and idealism. Keep faith grounded.',
     'Pluto Conjunction Jupiter': 'Transformative success and deep empowerment. Prosper through change.',
   
-    // ♄ SATURN
+   
     'Uranus Conjunction Saturn': 'Breaking free from limitations. Restructure for greater freedom.',
     'Neptune Conjunction Saturn': 'Boundaries dissolve. Learn to balance form with flow.',
     'Pluto Conjunction Saturn': 'Profound rebuilding of structures. Renew foundations with strength.',
   
-    // ♅ URANUS
+  
     'Neptune Conjunction Uranus': 'Spiritual and technological awakening. Revolutionary creativity.',
     'Pluto Conjunction Uranus': 'Generational upheaval and innovation. Deep social transformation.',
   
-    // ♆ NEPTUNE
+    
     'Pluto Conjunction Neptune': 'Spiritual and collective transformation. The unseen becomes visible.'
   };
   
@@ -629,9 +629,9 @@ function getAspect(transitDegree, natalDegree, transitSign, natalSign) {
   console.log(`      📐 Aspect calc: |${transitDegree.toFixed(2)}° - ${natalDegree.toFixed(2)}°| = ${diff.toFixed(2)}°`);
   console.log(`      🔮 Signs: Transit ${transitSign.name}, Natal ${natalSign.name}`);
 
-  // Dynamic orbs based on sign widths
+ 
   const avgWidth = (transitSign.width + natalSign.width) / 2;
-  const orbMultiplier = avgWidth / 30; // Normalize to traditional 30° sign
+  const orbMultiplier = avgWidth / 30; 
   
   const aspects = [
     { name: 'Conjunction', angle: 0, baseOrb: 8 },
@@ -642,7 +642,7 @@ function getAspect(transitDegree, natalDegree, transitSign, natalSign) {
   ];
 
   for (const aspect of aspects) {
-    // Adjust orb based on sign widths
+   
     const adjustedOrb = aspect.baseOrb * orbMultiplier;
     const orb = Math.abs(diff - aspect.angle);
     
@@ -657,7 +657,7 @@ function getAspect(transitDegree, natalDegree, transitSign, natalSign) {
 }
 
 function get13SignAspectNature(aspect, transitSign, natalSign) {
-  // Special handling for Ophiuchus
+  
   if (transitSign.name === 'Ophiuchus' || natalSign.name === 'Ophiuchus') {
     return {
       nature: 'Transformative',
@@ -665,7 +665,7 @@ function get13SignAspectNature(aspect, transitSign, natalSign) {
     };
   }
   
-  // Scorpio's narrow width makes aspects more intense
+ 
   if (transitSign.name === 'Scorpio' || natalSign.name === 'Scorpio') {
     return {
       nature: 'Intense',
@@ -673,7 +673,7 @@ function get13SignAspectNature(aspect, transitSign, natalSign) {
     };
   }
   
-  // Aries' wide width diffuses energy
+  
   if (transitSign.name === 'Aries' || natalSign.name === 'Aries') {
     return {
       nature: 'Expansive',
@@ -681,7 +681,7 @@ function get13SignAspectNature(aspect, transitSign, natalSign) {
     };
   }
   
-  // Default traditional interpretation
+
   const harmonious = ['Trine', 'Sextile', 'Conjunction'];
   const challenging = ['Square', 'Opposition'];
   
@@ -748,11 +748,10 @@ function compareTransitsWithNatal(dailyTransits, natalChart) {
 
       console.log(`   Comparing ${transitKey} (${transitLongitude.toFixed(2)}°) vs ${natalKey} (${natalLongitude.toFixed(2)}°)`);
 
-     // Get zodiac signs for both positions
+    
 const transitSignInfo = getZodiacSign(transitTropicalLong);
 const natalSignInfo = getZodiacSign(natalTropicalLong);
 
-// Find full sign data including width
 const transitSign = ZODIAC_13_SIGNS.find(s => s.name === transitSignInfo.name);
 const natalSign = ZODIAC_13_SIGNS.find(s => s.name === natalSignInfo.name);
 
@@ -882,34 +881,28 @@ function generateDayByDayGuidance(weekData) {
 
 const getMembers = async () => {
   try {
-    const subscribers = await subscription
-      .find({
-        status: { $in: ['active', 'trialing'] }
-      })
-      .populate('userId');
+    const User = require('../models/user'); 
 
-    if (!subscribers || subscribers.length === 0) {
-      console.log('No active subscribers found');
+    const users = await User.find({
+      email: { $exists: true, $ne: null },
+      birth_date: { $exists: true, $ne: null }
+    });
+
+    if (!users || users.length === 0) {
+      console.log('No users with birth dates found');
       return [];
     }
 
-    const members = subscribers
-      .filter(sub => sub.userId && sub.userId.email && sub.userId.birth_date)
-      .map(sub => {
-        const user = sub.userId;
+    const members = users.map(user => ({
+      id: user._id,
+      email: user.email,
+      name: user.name || 'Member',
+      birth_date: user.birth_date,
+      birth_time: user.birth_time,
+      birth_timezone: user.birth_timezone
+    }));
 
-        return {
-          id: user._id,
-          email: user.email,
-          name: user.name || 'Member',
-          subscriptionStatus: sub.status,
-          birth_date: user.birth_date,
-          birth_time: user.birth_time,
-          birth_timezone: user.birth_timezone
-        };
-      });
-
-    console.log(`Found ${members.length} active members with birth dates`);
+    console.log(`Found ${members.length} users with birth dates`);
 
     return members;
   } catch (error) {
@@ -1241,11 +1234,7 @@ async function sendDynamicWeeklyReport(member, report) {
 
           ${natalChartSection}
 
-         
-          <h2>📅 Daily Transit Breakdown</h2>
-          <p style="color: #7f8c8d; margin: 15px 0;">This week's planetary transits interacting with your natal chart:</p>
-          
-          ${dailyBreakdownHtml}
+        
 
           <h2>📋 Weekly Summary</h2>
           <div style="background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%); padding: 25px; border-left: 5px solid #667eea; margin: 25px 0; border-radius: 8px; white-space: pre-line;">
@@ -1388,7 +1377,7 @@ function generateNatalChartSVG(natalChart) {
   const innerRadius = 200;
   const planetRadius = 140;
 
-  // Draw 13 zodiac signs with variable widths
+  
   let zodiacWheel = '';
   for (const sign of ZODIAC_13_SIGNS) {
     const startAngle = (sign.start - 90) * Math.PI / 180;
@@ -1430,7 +1419,7 @@ function generateNatalChartSVG(natalChart) {
     `;
   }
 
-  // Planet markers
+
   let planetMarkers = '';
   const usedPositions = [];
   
@@ -1483,7 +1472,7 @@ function generateNatalChartSVG(natalChart) {
     }
   });
 
-  // Aspect lines
+
   let aspectLines = '';
   for (let i = 0; i < planets.length; i++) {
     for (let j = i + 1; j < planets.length; j++) {
@@ -1559,7 +1548,7 @@ function calculateTropicalLongitude(raHours, decDegrees) {
   }
   lambda = ((lambda % 360) + 360) % 360;
   
-  // Convert to sidereal for 13-sign system
+  
   let siderealLambda = lambda - AYANAMSA_2025;
   if (siderealLambda < 0) siderealLambda += 360;
   return siderealLambda;
@@ -1580,7 +1569,7 @@ function getZodiacSignFromLongitude(longitude) {
           }
       }
   }
-  return { name: 'Aries', symbol: '♈', degree: 0 }; // fallback
+  return { name: 'Aries', symbol: '♈', degree: 0 }; 
 }
 
 function getPlanetSymbol(planetName) {
